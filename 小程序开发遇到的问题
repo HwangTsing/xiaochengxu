@@ -1,0 +1,784 @@
+（小程序）
+遇到的Bug:
+1.【堂点小程序】点菜页面中，连续点击点菜数量中的“减号”图标，查看高概率点击没有反应。
+方法: wx.showLoading({
+            title: '加载中',
+            mask:true//防止触摸穿透
+        })
+2.、“确认订单”页面中，先点击定位到“备注说明”输入框中，然后再点击定位到“用餐人数”输入框中，查看输入键盘遮盖住“用餐人数”输入框了
+ <view class="name-wrap">
+        <label>用餐人数</label>
+        <input type="number" placeholder="请输入用餐人数" name='userscount'/>
+    </view>
+    <view class="remark-warp">
+        <label>备注说明</label>
+        <input type="text" placeholder="请输入备注（可不填）" name="remark"/>
+    </view>
+方法：//type="number"改为type="text"两个输入框共用一个键盘
+
+3.进入我的订单，未支付的订单，进行支付，支付成功后，点击返回“订单按钮”，返回到该订单，订单状态没有刷新，点击“去支付”会有“订单已支付”提示
+方法：toPay: function () {
+        let page = this;
+        let payurl = app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay&i=' + +app.globalData.i + '&storeid=' + this.data.data.store_id + '&order_id=' + this.data.data.id;//支付
+        wx.showLoading({
+            title: '加载中',
+        });
+        new Promise(function (resolve, reject) {
+            util.httpPost(payurl, {}).then(function (data) {
+                resolve(data);
+            }.bind(this))
+        }.bind(this)).then(function (value) {//得到信息后进行微信支付
+            wx.hideLoading();
+            if(value.data.code === -5001) {
+                wx.showModal({
+                    title: '温馨提示',
+                    content: value.message,
+                    showCancel: false,
+                    success: function (res) {
+                        if (res.confirm) {
+                            page.init();
+                        }
+                    }
+                });
+                throw new Error('err:order_payed');
+            } else if(value.data.code === -5002) {
+                wx.showModal({
+                    title: '温馨提示',
+                    content: value.message,
+                    showCancel: false,
+                    success: function (res) {
+                        if (res.confirm) {
+                            page.init();
+                        }
+                    }
+                });
+                throw new Error('err:under_stock');
+            }
+            wx.requestPayment({
+                'timeStamp': value.data.timeStamp + "",
+                'nonceStr': value.data.nonceStr,
+                'package': value.data.package,
+                'signType': 'MD5',
+                'paySign': value.data.paySign,
+                'success': function (res) {
+                    util.http(app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay_status&i=' + app.globalData.i + '&storeid=' + app.globalData.storeid + '&order_id=' + page.options.orderid).then((data) => {
+                        page.init();
+                    });
+                },
+                'fail': function (res) {
+
+                }
+            })
+        })
+
+
+    },
+4.订单详情中的进度条，应展示在等待处理和已确定之间
+方法： <block wx:if="{{data.status==0}}">
+                <progress  percent="25" stroke-width="2"/>
+            </block>
+            <block wx:elif="{{data.status==1}}">
+                <progress  percent="75" stroke-width="2"/>
+            </block>
+            <block wx:elif="{{data.status==3}}">
+                <progress  percent="100" stroke-width="2"/>
+            </block>
+5.首页-标题：小程序名称；（请求的是接口里的数据）
+方法： util.http(app.globalData.weidianBase + '/wxa/index.php?c=account&m=info&i=' + app.globalData.i)
+                        .then((data) => {
+                                data.animationData = {};
+                                this.setData({data: data.data});
+                                wx.setNavigationBarTitle({
+                                    title: this.data.data.account_name
+                                })
+                            }
+                        );
+订单-标题：我的订单
+方法：写在xxx.json文件里{
+  "navigationBarTitleText": "我的订单",
+  "enablePullDownRefresh": true
+}
+6.点菜页面中，选择有规格的菜品后，查看阴影部分显示与需求不符。(遮罩层)IOS.8级以上支持fixed
+.background-layer {
+width:100%;height:100%;background:black;opacity:0.5;background:rgba(0,0,0,.5);position:fixed;top:0;left:0;right:0;
+bottom:0;}
+.footer-layer {background:#fff;position:fixed;bottom:0;width:100%;}(弹出框)
+7.进入商品列表，当商品类别过长时，会有重叠
+方法:overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+
+8.输入餐桌人数和备注时，光标会左移
+方法:padding-left:18rpx;
+
+9.进入小程序，点击“我的订单”，点击“首页”按钮，再次点击“我的订单”，点击后无反应，点击扫面二维码，扫描二维码后，没有跳转到商品列表，还处于“首页”页面
+方法: indextap: function (event) {
+        wx.reLaunch({
+            url: '/pages/index/index',
+        })
+
+    },
+10.未达到最低消费 弹出框样式不符，点击弹出框确认后，弹出框消失，页面一直处于刷新状态
+方法: goPay: function (event) {
+        let createOrderurl = app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.create&i=15&storeid=' + app.globalData.storeid;//生成订单
+        let payurl = app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay&i=15&storeid=' + app.globalData.storeid + '&order_id=';//支付
+        if (this.data.data.price <= 0) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '请添加商品至购物车',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定')
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        if(this.data.limit_price > 0 && this.data.data.price < this.data.limit_price) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '本桌台最低消费' + this.data.limit_price + '元哦',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定')
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        if (!event.detail.value.userscount) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '请输入用餐人数',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定') 
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        //console.log(event.detail.value.userscount)// /^[1 - 9]\d * $ /
+        if (!event.detail.value.userscount.match(/^\d+$/) || +event.detail.value.userscount <= 0) {
+            wx.showModal({
+              title: '温馨提示',
+              showCancel: false,
+              content: '请输入正确的用餐人数',
+              success:function(res){
+                  if(res.confirm){
+                    //console.log("用户点击确定")
+                  }else if(res.cancel){
+                    //console.log("用户点击取消")
+                  }
+              }
+            });
+            return;
+        }
+        wx.showLoading({
+            title: '加载中',
+        });
+        let page = this;
+        //console.log(typeof page);//object
+        util.httpPost(createOrderurl, {
+            "table_id": app.globalData.tablesid,	//桌台号
+            "counts": event.detail.value.userscount || 0,	//用餐人数
+            "remark": event.detail.value.remark || "", //备注
+            "version": this.data.data.version //版本
+        }).then(function (data) {//1.生成订单
+          if (data.type === "success") {
+            //console.log(data.data.order_id);//order_id:订单ID
+                if (!data.data.order_id) {
+                    wx.hideLoading();
+                    if (data.data.code === -904) {  //已买单
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    wx.navigateBack({
+                                        delta: 1
+                                    });
+                                }
+                            }
+                        });
+                        throw new Error('err:order_payed');
+                    } else if (data.data.code === -903) { //有加菜
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    page.init();
+                                }
+                            }
+                        });
+                        throw new Error('err:cart_modified');
+                    } else if (data.data.code === -5002) {
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    page.init();
+                                }
+                            }
+                        });
+                        throw new Error('err:under_stock');
+                    }
+                } else {
+                    return new Promise(function (resolve, reject) {
+                        resolve(data);
+                    });
+                }
+            }
+        }.bind(this), function(){
+            throw new Error('err:order_create_fail');
+        }.bind(this)).then(function (value) {//2.获取支付信息
+            return new Promise(function (resolve, reject) {
+                util.httpPost(payurl + value.data.order_id, {}).then(function (data) {
+                    data.order_id = value.data.order_id;
+                    resolve(data);
+                }.bind(this))
+            }.bind(this));
+        }.bind(this)).then((value) => {//得到信息后进行微信支付
+            wx.hideLoading();
+            if (value.data.code === -5001) {
+                wx.showModal({
+                    title: '温馨提示',
+                    content: value.message,
+                    showCancel: false,
+                    success: function (res) {
+                        if (res.confirm) {
+                            wx.redirectTo({
+                                url: '/pages/order-detail/order-detail?orderid=' + value.order_id,
+                            })
+                        }
+                    }
+                });
+                throw new Error('err:order_ispay');
+            } else if (value.data.code === -5002) {
+                wx.showModal({
+                    title: '温馨提示',
+                    content: value.message,
+                    showCancel: false,
+                    success: function (res) {
+                        if (res.confirm) {
+                            wx.redirectTo({
+                                url: '/pages/order-detail/order-detail?orderid=' + value.order_id,
+                            })
+                        }
+                    }
+                });
+                throw new Error('err:under_stock');
+            }
+            return new Promise((resolve, reject) => {
+                wx.requestPayment({
+                    'timeStamp': value.data.timeStamp + "",
+                    'nonceStr': value.data.nonceStr,
+                    'package': value.data.package,
+                    'signType': 'MD5',
+                    'paySign': value.data.paySign,
+                    'success': function (res) {
+                        res.orderid = value.order_id;
+                        resolve(res);
+                    },
+                    'fail': function (res) {
+                        res.orderid = value.order_id;
+                        wx.redirectTo({
+                            url: '/pages/order-detail/order-detail?orderid=' + res.orderid,
+                        })
+                    }
+                })
+            })
+        }).then((response) => {
+            util.http(app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay_status&i=' + app.globalData.i + '&storeid=' + app.globalData.storeid + '&order_id=' + response.orderid).then((data) => {
+                wx.redirectTo({
+                    url: '/pages/order-detail/order-detail?orderid=' + response.orderid,
+                })
+            })
+        }, (error) => {
+            console.log(error);
+        })
+    },
+    addGoods: function () {
+        wx.navigateBack({
+            delta: 1
+        })
+    },
+11.已经售窑商品没有显示已售窑的标识，还能正常加入购物车
+方法: <block wx:if="{{item.total<=0}}">
+            <image src="/images/icon/sellOut.png"></image>
+        </block>
+        <block wx:elif="{{item.hasoption == 0}}">
+             <view class="minus-images" catchtap="minusGoods" style="visibility: show" data-idx="{{idx}}"style="{{(item.number<=0 || item.number == undefined)?'visibility: hidden':''}}">
+        <view class="minus">
+             <image src="/images/icon/typebtn1a.png"></image>
+           </view>
+           </view>
+             <text class="number" style="{{item.number<=0 || item.number == undefined?'visibility: hidden':''}}">{{item.number}}</text>
+          <view class="plus-images" catchtap="addGoods" data-idx="{{idx}}">
+               <view class="plus">
+                  <image src="/images/icon/typebtn2a.png"></image>
+                 </view>
+                 </view>     
+        </block>
+12.商品列表选规格 选好了 未居中
+方法：.order-item .order-item-title .product-tag 
+{
+
+border:1px solid #fd721c;
+color:#fd721c;
+height:40rpx;
+width:106rpx;
+border-radius:7rpx;
+
+font-size:24rpx;
+display:flex;
+justify-content:center;
+align-items:center;
+
+
+}
+
+13.订单详情中缺少“桌台”和“类型”数据
+方法： <text>桌台：{{data.table_name}}</text>
+14.安卓版本 选择好商品进入购物车页面，输入用餐人数，向上滑动，用餐人数和总金额重叠
+方法:textarea标签换成input，textarea在小程序上有穿透现象
+15.进入购物车页面，点击“清除”按钮，价格没有变为0
+delAll: function () {
+        //删除全部
+        this.data.data.list = [];
+        util.http(app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=cart.clean&i=' + app.globalData.i + '&storeid=' + app.globalData.storeid + "&table_id=" + app.globalData.tablesid).then(function (data) {//console.log(data);
+            this.data.data.price = 0;//点击“清除”按钮，价格变为0
+	    this.data.data.count = 0;
+            this.setData({
+                data: this.data.data,
+            })
+        }.bind(this));
+    },
+15.当购物车 某商品数量为1时，点击“-”，删除该商品
+minusNum: function (event) {//减
+      let idx = event.currentTarget.dataset.idx;//currentTarget:事件绑定当前的组件
+        let tempData = this.data;
+        let total = + tempData.data.list[idx].total - 1;
+        this.updateCartGoodsNum(tempData.data.list[idx].goods_id, tempData.data.list[idx].option_id,
+            total, app.globalData.tablesid, tempData.data.list[idx].cart_id)
+            .then((function(){
+                if(total > 0) {
+                    tempData.data.list[idx].total = total;
+                    this.setData({
+                        'data.list' : tempData.data.list
+                    });
+                } else {
+                    tempData.data.list.splice(idx, 1);//点击“-”，删除该商品
+                    this.setData({
+                        data: tempData.data
+                    })
+                }
+            }).bind(this));
+    },
+
+16.包间 号，可滚动展示
+<swiper vertical="true" autoplay interval="2000" circular="false" class="horse-race-lamp">
+        <swiper-item>
+            <view class="horn-warp">
+                <image src="/images/icon/horn.png"></image>
+            </view>
+            {{table}}
+            <block wx:if="{{limit_price}}">最低消费{{limit_price}}元</block>
+        </swiper-item>
+        <swiper-item>
+             <view class="horn-warp">
+                <image src="/images/icon/horn.png"></image>
+            </view>
+            {{table}}
+            <block wx:if="{{limit_price}}">最低消费{{limit_price}}元</block>
+        </swiper-item>
+    </swiper>
+17.向下滑动幅度大一点，顶部显示空白区域过多
+xxx.json:{
+	"navigationBarTitleText": "订单详情",
+    	"enablePullDownRefresh": true
+}
+xxx.js: Page({
+	onPullDownRefresh: function () {
+        	wx.stopPullDownRefresh()
+    	},
+})
+
+18.点击清空按钮后购物车中数量为0时，点击“去支付”按钮，会弹出“请添加商品到购物车”的温馨提示
+  当商品金额 =0时，点击“去支付”按钮，弹出提示框““订单金额不能为0哟”
+ goPay: function (event) {
+        let createOrderurl = app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.create&i=' + app.globalData.i+'&storeid=' + app.globalData.storeid;//生成订单
+        let payurl = app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay&i=' + app.globalData.i +'&storeid=' + app.globalData.storeid + '&order_id=';//支付
+        
+        if (this.data.data.count <= 0) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '请添加商品至购物车',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定')
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        if(this.data.limit_price > 0 && this.data.data.price < this.data.limit_price) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '本桌台最低消费' + this.data.limit_price + '元哦',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定')
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        if (!event.detail.value.userscount) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '请输入用餐人数',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定') 
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        //console.log(event.detail.value.userscount)// /^[1 - 9]\d * $ /
+        if (!event.detail.value.userscount.match(/^\d+$/) || +event.detail.value.userscount <= 0) {
+            wx.showModal({
+              title: '温馨提示',
+              showCancel: false,
+              content: '请输入正确的用餐人数',
+              success:function(res){
+                  if(res.confirm){
+                    //console.log("用户点击确定")
+                  }else if(res.cancel){
+                    //console.log("用户点击取消")
+                  }
+              }
+            });
+            return;
+        }
+        if (this.data.data.price == 0) {
+            wx.showModal({
+                title: '温馨提示',
+                showCancel: false,
+                content: '订单金额不能为0哟',
+                success: function (res) {
+                    if (res.confirm) {
+                        console.log('用户点击确定')
+                    } else if (res.cancel) {
+                        console.log('用户点击取消')
+                    }
+                }
+            });
+            return;
+        }
+        wx.showLoading({
+            title: '加载中',
+        });
+        let page = this;
+        //console.log(typeof page);//object
+        util.httpPost(createOrderurl, {
+            "table_id": app.globalData.tablesid,	//桌台号
+            "counts": event.detail.value.userscount || 0,	//用餐人数
+            "remark": event.detail.value.remark || "", //备注
+            "version": this.data.data.version //版本
+        }).then(function (data) {//1.生成订单
+          if (data.type === "success") {
+            //console.log(data.data.order_id);//order_id:订单ID
+                if (!data.data.order_id) {
+                    wx.hideLoading();
+                    if (data.data.code === -904) {  //已买单
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    wx.navigateBack({
+                                        delta: 1
+                                    });
+                                }
+                            }
+                        });
+                        throw new Error('err:order_payed');
+                    } else if (data.data.code === -903) { //有加菜
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    page.init();
+                                }
+                            }
+                        });
+                        throw new Error('err:cart_modified');
+                    } else if (data.data.code === -5002) {
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    page.init();
+                                }
+                            }
+                        });
+                        throw new Error('err:under_stock');
+                    }
+                } else {
+                    return new Promise(function (resolve, reject) {
+                        resolve(data);
+                    });
+                }
+            }
+        }.bind(this), function(){
+            throw new Error('err:order_create_fail');
+        }.bind(this)).then(function (value) {//2.获取支付信息
+            return new Promise(function (resolve, reject) {
+                util.httpPost(payurl + value.data.order_id, {}).then(function (data) {
+                    data.order_id = value.data.order_id;
+                    resolve(data);
+                }.bind(this))
+            }.bind(this));
+        }.bind(this)).then((value) => {//得到信息后进行微信支付
+            wx.hideLoading();
+            if (value.data.code === -5001) {
+                wx.showModal({
+                    title: '温馨提示',
+                    content: value.message,
+                    showCancel: false,
+                    success: function (res) {
+                        if (res.confirm) {
+                            wx.redirectTo({
+                                url: '/pages/order-detail/order-detail?orderid=' + value.order_id,
+                            })
+                        }
+                    }
+                });
+                throw new Error('err:order_ispay');
+            } else if (value.data.code === -5002) {
+                wx.showModal({
+                    title: '温馨提示',
+                    content: value.message,
+                    showCancel: false,
+                    success: function (res) {
+                        if (res.confirm) {
+                            wx.redirectTo({
+                                url: '/pages/order-detail/order-detail?orderid=' + value.order_id,
+                            })
+                        }
+                    }
+                });
+                throw new Error('err:under_stock');
+            }
+            return new Promise((resolve, reject) => {
+                wx.requestPayment({
+                    'timeStamp': value.data.timeStamp + "",
+                    'nonceStr': value.data.nonceStr,
+                    'package': value.data.package,
+                    'signType': 'MD5',
+                    'paySign': value.data.paySign,
+                    'success': function (res) {
+                        res.orderid = value.order_id;
+                        resolve(res);
+                    },
+                    'fail': function (res) {
+                        res.orderid = value.order_id;
+                        wx.redirectTo({
+                            url: '/pages/order-detail/order-detail?orderid=' + res.orderid,
+                        })
+                    }
+                })
+            })
+        }).then((response) => {
+            util.http(app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay_status&i=' + app.globalData.i + '&storeid=' + app.globalData.storeid + '&order_id=' + response.orderid).then((data) => {
+                wx.redirectTo({
+                    url: '/pages/order-detail/order-detail?orderid=' + response.orderid,
+                })
+            })
+        }, (error) => {
+            console.log(error);
+        })
+    },
+    addGoods: function () {
+        wx.navigateBack({
+            delta: 1
+        })
+    },
+    delAll: function () {
+        //删除全部
+        this.data.data.list = [];
+        util.http(app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=cart.clean&i=' + app.globalData.i + '&storeid=' + app.globalData.storeid + "&table_id=" + app.globalData.tablesid).then(function (data) {//console.log(data);
+            this.data.data.price = 0;
+            this.data.data.count = 0;//商品清空后点击去支付按钮弹框“请添加商品至购物车”
+            this.setData({
+                data: this.data.data,
+            })
+        }.bind(this));
+        
+    },
+
+
+页面路由：
+1.初始化（新页面入栈）2.打开新页面（新页面入栈）3.页面重定向（当前页面出栈，新页面入栈）
+4.页面返回（页面不断出栈，新页面入栈）5.Tab切换(页面全部出栈，只留下新的Tab页面)6.重加载（页面全部出栈，只留下新的页面）
+路由方式：
+
+
+ minusNum: function (event) {//减
+      let idx = event.currentTarget.dataset.idx;//currentTarget:事件绑定当前的组件
+        let tempData = this.data;
+        let total = + tempData.data.list[idx].total - 1;
+        this.updateCartGoodsNum(tempData.data.list[idx].goods_id, tempData.data.list[idx].option_id,
+            total, app.globalData.tablesid, tempData.data.list[idx].cart_id)
+            .then((function(){
+                if(total > 0) {
+                    tempData.data.list[idx].total = total;
+                    this.setData({
+                        'data.list' : tempData.data.list
+                    });
+                } else {
+                    tempData.data.list.splice(idx, 1);
+                    this.setData({
+                        data: tempData.data
+                    })
+                }
+            }).bind(this));
+    },
+
+微信支付：
+   wx.requestPayment({//微信支付
+                    'timeStamp': value.data.timeStamp + "",
+                    'nonceStr': value.data.nonceStr,
+                    'package': value.data.package,
+                    'signType': 'MD5',
+                    'paySign': value.data.paySign,
+                    'success': function (res) {
+                        res.orderid = value.order_id;
+                        resolve(res);
+                    },
+                    'fail': function (res) {
+                        res.orderid = value.order_id;
+                        wx.redirectTo({
+                            url: '/pages/order-detail/order-detail?orderid=' + res.orderid,
+                        })
+                    }
+                })
+	
+	var Promise = require('./es6-promise.min.js');//ES6中的异步操作   在util.js里设置
+
+	
+ 	let page = this;
+        //console.log(typeof page);//object
+        util.httpPost(createOrderurl, {
+            "table_id": app.globalData.tablesid,	//桌台号
+            "counts": event.detail.value.userscount || 0,	//用餐人数
+            "remark": event.detail.value.remark || "", //备注
+            "version": this.data.data.version //版本
+        }).then(function (data) {//1.生成订单
+          if (data.type === "success") {
+            //console.log(data.data.order_id);//order_id:订单ID
+                if (!data.data.order_id) {
+                    wx.hideLoading();
+                    if (data.data.code === -904) {  //已买单
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    wx.navigateBack({
+                                        delta: 1
+                                    });
+                                }
+                            }
+                        });
+                        throw new Error('err:order_payed');
+                    } else if (data.data.code === -903) { //有加菜
+                        wx.showModal({
+                            title: '温馨提示',
+                            content: data.message,
+                            showCancel: false,
+                            success: function (res) {
+                                if (res.confirm) {
+                                    page.init();
+                                }
+                            }
+                        });
+                        throw new Error('err:cart_modified');
+                    }
+                } else {
+                    return new Promise(function (resolve, reject) {
+                        resolve(data);
+                    });
+                }
+            }
+        }.bind(this), function(){
+            throw new Error('err:order_create_fail');
+        }.bind(this)).then(function (value) {//2.获取支付信息
+            return new Promise(function (resolve, reject) {
+                util.httpPost(payurl + value.data.order_id, {}).then(function (data) {
+                    data.order_id = value.data.order_id;
+                    resolve(data);
+                }.bind(this))
+            }.bind(this));
+        }.bind(this)).then((value) => {//得到信息后进行微信支付
+            wx.hideLoading();
+            return new Promise((resolve, reject) => {
+                wx.requestPayment({
+                    'timeStamp': value.data.timeStamp + "",
+                    'nonceStr': value.data.nonceStr,
+                    'package': value.data.package,
+                    'signType': 'MD5',
+                    'paySign': value.data.paySign,
+                    'success': function (res) {
+                        res.orderid = value.order_id;
+                        resolve(res);
+                    },
+                    'fail': function (res) {
+                        res.orderid = value.order_id;
+                        wx.redirectTo({
+                            url: '/pages/order-detail/order-detail?orderid=' + res.orderid,
+                        })
+                    }
+                })
+            })
+        }).then((response) => {
+            util.http(app.globalData.weidianBase + '/wxa/index.php?c=entry&m=weisrc_dish&do=order.pay_status&i=' + app.globalData.i + '&storeid=' + app.globalData.storeid + '&order_id=' + response.orderid).then((data) => {
+                wx.redirectTo({
+                    url: '/pages/order-detail/order-detail?orderid=' + response.orderid,
+                })
+            })
+        }, (error) => {
+            console.log(error);
+        })
+    },
