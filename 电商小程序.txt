@@ -1,0 +1,376 @@
+2017.08.30
+如果首页底部配置了tabBar，顶部也需要tab选项卡点击跳转，
+这时 wx.navigateTo({
+          url: ''//不能再配置tabBar里的文件路径，配置了点击也不起效果
+      })
+tabBar配置了路径，其他页面要跳转到tabBar里配置的页面，一个小坑，不能再用wx.navigateTo({})跳转了，解决方法：wx.switchTab(OBJECT)
+跳转到 tabBar 页面，并关闭其他所有非 tabBar 页面
+电商小程序APPid:wx13467f1160f783de
+拉手云铺appid:wx62839aaadf944215
+
+2017.10.12
+1.wx.navigateTo(OBJECT)
+wx.redirectTo(OBJECT)
+wx.reLaunch(OBJECT)
+navigator
+跳转新开页面不能等于或超过5层，等于或超过5层跳转不起作用
+2.
+wx.navigateTo(OBJECT)
+wx.redirectTo(OBJECT)
+wx.reLaunch(OBJECT)
+在ios手机中可能不生效，可以用navigator代替
+2017.10.17
+1.input组件的placeholder在ios中字体位于组件顶部
+2.动态获取API标题存在的问题：点击tabBar会出现标题错乱显示的问题
+首页：初始在onLOad页面加载时获取标题
+wx.setNavigationBarTitle({//动态设置当前页面的标题
+                title: that.data.shop_name
+            })
+在onShow中页面显示时再一次获取页面标题title: 必须存全局中
+wx.setNavigationBarTitle({//动态设置当前页面的标题
+                title: that.data.shop_name
+            })
+3.如果电商小程序中涉及后台系统返回的自定义表单处理起来会相对灵活些：
+自定义表单给接口传参数时存在一个问题：有可能接口返回的字段是实时变化的，所以就不能按照字段取数据了
+得拿对象，并把对象放到组件中遍历,然后通过事件拿取页面上的内容：
+
+ <!--规格  -->
+        <view class="specs_All" data-item_data="{{diyformfields}}" style="{{specsitem.length ===0 && diyformfields.length ===0 ?'height:200rpx;':'height:765rpx'}}">
+            <view class="color_view">
+                <view class="color_specs" wx:for="{{specsitem}}" wx:key="id" wx:for-item="spec">
+                    <view class='color_title' data-index="{{spec.id}}">{{spec.title}}：</view>
+                    <view class="aiai">
+                        <view wx:for="{{spec.items}}" wx:key="id" wx:for-item="item"
+                              class="{{item.id == specSelectedItem[spec.id]? 'active' : 'color_count'}}" data-item_id="{{item.id}}"
+                              data-spec_id="{{spec.id}}" catchtap="onClicklist">{{item.title}}</view>
+                    </view>
+                </view>
+            </view>
+            <!--自定义表单  -->
+            <view class="diyform">
+                <block wx:for="{{diyformfields}}" wx:for-index="idx" class="{{diyformfields == ''?'display:none':''}}">
+                    <view class="self_border">
+                        <view class="self_text" wx:if="{{item.data_type==0}}">
+                            <label>{{item.tp_name}}：</label>
+                            <input type='text' placeholder="请输入{{item.tp_name}}" value="" data-type="{{item.data_type}}" placeholder-style="color:#ccc; font-size:26rpx;" data-index="{{item.diyformkey}}" bindinput="bindblurDan" data-item="{{markTrue}}" style="{{markTrue === true? 'color:#808080':''}}"/>
+                        </view>
+                    </view>
+                    <view class="card_border">
+                        <view class="self_card" wx:if="{{item.data_type==6}}">
+                            <label>{{item.tp_name}}：</label>
+                            <input type='text' maxlength="18" placeholder="请输入身份证" placeholder-style="color:#ccc; font-size:26rpx;" value="" data-type="{{item.data_type}}" data-index="{{item.diyformkey}}" bindinput="bindblurCode" data-item="{{markTrue}}" style="{{markTrue === true? 'color:#808080':''}}"/>
+                        </view>
+                    </view>
+
+                    <view class="check_view_box" wx:if="{{item.data_type==3}}">
+                        <view class="check_item">{{item.tp_name}}：</view>
+                        <checkbox-group class="label_view" data-type="{{item.data_type}}" data-index="{{item.diyformkey}}" bindchange="checkboxChange">
+                            <label class="checkbox" wx:for="{{item.tp_text}}">
+                                <checkbox class="checkbox_view" value="{{item}}"/>{{item}}
+                            </label>
+                        </checkbox-group>
+
+                    </view>
+                    <view class="section_view">
+                        <view class="section xialasection" wx:if="{{item.data_type==2}}">
+                            <view class="section__title tp_textxia">{{item.tp_name}}：</view>
+                            <picker class="picktext" data-type="{{item.data_type}}" data-index="{{item.diyformkey}}" bindchange="bindPicker" value="{{xialaArray[xialaindex]}}" range="{{xialaArray}}">
+                                <view class="picker" data-item="{{pickerTrue}}" style="{{pickerTrue === true? 'color:#808080':''}}">
+                                    {{xialaArray[xialaindex]}}
+                                </view>
+                            </picker>
+                        </view>
+                    </view>
+                    <view class="section_view">
+                        <view class="section" wx:if="{{item.data_type==7}}">
+                            <view class="section__title">{{item.tp_name}}：</view>
+                            <picker mode="date" value="{{date1}}" start="" end="" data-type="{{item.data_type}}" data-index="{{item.diyformkey}}" bindchange="bindDateChange">
+                                <view class="picker" data-item="{{markTrue}}" style="{{markTrue === true? 'color:#808080':''}}">{{date1}}</view>
+                            </picker>
+                        </view>
+                    </view>
+                    <view class="section_view">
+                        <view class="section" wx:if="{{item.data_type==8}}">
+                            <view class="section__title" style="display: inline-block;">{{item.tp_name}}：</view>
+                            <picker mode="date" value="{{date2}}" start="" end="" data-type="{{item.data_type}}" data-index="{{item.diyformkey}}" bindchange="onDateChange" style="display: inline-block;">
+                                <view class="picker starttimer" data-item="{{startTrue}}" style="{{startTrue === true? 'color:#808080':''}}">{{date2}}</view>
+                            </picker>
+                            <view class="borderline" style="{{endTrue === true? 'left:86rpx':''}}"></view>
+                            <picker style="display: inline-block;" mode="date" value="{{date3}}" start="" end="" data-type="{{item.data_type}}" data-index="{{item.diyformkey}}" bindchange="onDateChangeEnd">
+                                <view class="picker" data-item="{{endTrue}}" style="{{endTrue === true? 'color:#808080':''}}">{{date3}}</view>
+                            </picker>
+                        </view>
+                    </view>
+                    <view class="section_view">
+                        <view class="section" wx:if="{{item.data_type==9}}">
+                            <view class="section__title">{{item.tp_name}}：</view>
+                            <picker mode="region" data-index="{{item.diyformkey}}" bindchange="bindRegionChange" value="{{region}}" custom-item="{{customItem}}">
+                                <view class="picker" data-item="{{regionTrue}}" style="{{regionTrue === true? 'color:#808080':''}}">
+                                    {{region[0]}}，{{region[1]}}
+                                </view>
+                            </picker>
+                        </view>
+                    </view>
+
+                    <view class="photo_border">
+                        <view class="photo_view" wx:if="{{item.data_type==5}}">
+                            <view class='photo'>{{item.tp_name}}：</view>
+                            <view class="tupian" wx:for="{{item.photoList}}" wx:for-item="photoUrl" wx:for-index="photoIndex">
+                                <image mode="aspectFit" src="{{photoUrl}}" style="display: inline-block;"></image>
+                                <view class="del_view">
+                                    <image mode="aspectFit" src="../../images/imgIndex/delete.png" bindtap="onDelete"
+                                           data-id="{{idx}}" data-photo="{{photoIndex}}"></image>
+                                </view>
+                            </view>
+                            <view class="tupian" wx:if="{{item.tp_max > item.photoList.length}}" data-index="{{item.diyformkey}}" data-id="{{idx}}" bindtap="onChangePhoto">
+                                <image mode="aspectFit"
+                                       src="{{item.photoList.length === 0 ? '../../images/imgIndex/photo01.png' : '../../images/imgIndex/photo02.png'}}">
+                                </image>
+                            </view>
+                        </view>
+                    </view>
+
+                </block>
+
+            </view>
+
+
+
+
+ /*input框失去焦点时触发事件*/
+    bindblurDan(e) {
+        this.data.formVlaue.danhang = e.detail.value;
+        this.data.diyformdata[e.currentTarget.dataset.index] =e.detail.value;
+    },
+    bindblurCode(e) {
+        this.data.formVlaue.codeId = e.detail.value;
+        this.data.diyformdata[e.currentTarget.dataset.index] =e.detail.value;
+    },
+    /*下拉*/
+    bindPicker: function(e) {
+        this.data.diyformdata[e.currentTarget.dataset.index] =e.detail.value;
+        console.log(e.detail.value);
+        this.setData({
+            xialaindex: e.detail.value,
+            pickerTrue:true   //如果pickerTrue为true改变字体颜色
+        })
+    },
+    /*多选框*/
+    checkboxChange: function(e) {
+        this.data.diyformdata[e.currentTarget.dataset.index] = e.detail.value;
+    },
+    /*日期*/
+    bindDateChange: function(e) {
+        this.data.diyformdata[e.currentTarget.dataset.index] =e.detail.value;
+        console.log(this.data.diyformdata);
+        this.setData({
+            date1: e.detail.value,
+            markTrue:true   //如果markTrue为true改变字体颜色
+        })
+    },
+
+    //日期范围
+    onDateChange: function(e) {
+        var type = e.currentTarget.dataset.type;
+        console.log(type);
+        if(type){
+            this.data.diyformdata[e.currentTarget.dataset.index+"_0"] =e.detail.value;
+        };
+        this.setData({
+            date2: e.detail.value,
+            startTrue:true    //如果startTrue为true改变字体颜色
+        })
+    },
+    //日期范围
+    onDateChangeEnd: function (e) {
+        this.data.diyformdata[e.currentTarget.dataset.index+"_1"] =e.detail.value;
+        this.setData({
+            date3: e.detail.value,
+            endTrue:true     //如果endTrue为true改变字体颜色
+        })
+    },
+    //省市
+    bindRegionChange: function (e) {
+        this.data.diyformdata[e.currentTarget.dataset.index] =e.detail.value;
+        console.log(this.data.diyformdata)
+        this.setData({
+            region: e.detail.value,
+            regionTrue:true       //如果regionTrue为true改变字体颜色
+        })
+    },
+
+    onChangePhoto(e) {
+        var that = this;
+        var formKey = e.currentTarget.dataset.index;
+        var formIndex = e.currentTarget.dataset.id;
+        let max = this.data.diyformfields[formIndex].tp_max;
+        wx.chooseImage({
+            count: max, // 默认9
+            sizeType: ['original', 'compressed'], // 可以指定是原图还是压缩图，默认二者都有
+            sourceType: ['album', 'camera'], // 可以指定来源是相册还是相机，默认二者都有
+            success:(res)=>{
+                // 返回选定照片的本地文件路径列表，tempFilePath可以作为img标签的src属性显示图片
+                //tempFiles  图片的本地文件列表，每一项是一个 File 对象
+                var tempFilePaths = res.tempFilePaths;
+                var len = tempFilePaths.length;
+                var i;
+                var photoPath = [];
+                let count = this.data.diyformfields[formIndex].photoList.length;
+                for(i = 0; i < len; i++){
+                    if(count >= max) {
+                        break;
+                    }
+                    this.data.diyformfields[formIndex].photoList.push(tempFilePaths[i]);
+                    photoPath.push(tempFilePaths[i]);
+                    count ++;
+                }
+                this.data.diyformdata[formKey] = this.data.diyformfields[formIndex].photoList;
+                this.setData({
+                    ['diyformfields[' + formIndex + ']photoList']: this.data.diyformfields[formIndex].photoList
+                });
+
+            }
+
+
+        });
+
+
+
+    },
+    onDelete(e) {
+        let formIndex = e.currentTarget.dataset.id;
+        let photoIndex = e.currentTarget.dataset.photo;
+        this.data.diyformfields[formIndex].photoList.splice(photoIndex, 1);
+        this.data.diyformdata[this.data.diyformfields[formIndex].diyformkey] = this.data.diyformfields[formIndex].photoList;
+        this.setData({
+            ['diyformfields[' + formIndex + ']photoList']: this.data.diyformfields[formIndex].photoList
+        });
+    },
+
+
+
+4.wxss布局尽量用弹性盒子布局（做兼容）：样式可能会影响功能
+5.多规格：
+1)可以先将从接口中获取的数据存在本地
+
+    // 商品详情多规格自定义表单信息展示
+  getorderContent(e) {
+    var that = this;
+    this.data.code_type = e.currentTarget.dataset.type;
+    let id = {
+      id:this.data.id
+    };
+      this.data.diyformfields = [];
+    app.globalData.wtApi.getorderContent(id).then((data) => {
+        //wx.setStorageSync('diyformfields', data.result.diyformfields);
+        if(data.status == 1){
+            this.data.goodsData = data.result.goods;
+            this.data.specsData = data.result.specs;
+            this.data.specsitem = [];
+            for(var k=0; k<this.data.specsData.length;k++){
+                this.data.specsitem.push(this.data.specsData[k]);
+            };
+            console.log(this.data.specsitem);
+            this.buildSpecOptionMap(data.result.options);
+            this.data.optionsData = data.result.options;
+            this.data.diyformfields = data.result.diyformfields;
+            let listObj = [];
+            for(var i in this.data.diyformfields){
+                this.data.diyformfields[i]['diyformkey'] = i;
+                let data_typenum = this.data.diyformfields[i].data_type;
+                if(data_typenum == 2){
+                    this.setData({
+                        xialaArray:this.data.diyformfields[i].tp_text
+                    });
+                } else if(data_typenum == 5) {
+                    this.data.diyformfields[i].photoList = [];
+                }
+                listObj.push(this.data.diyformfields[i]);
+            }
+            console.log(listObj);
+            this.setData({
+                diyformfields:listObj,
+                thumb:this.data.goodsData.thumb,
+                minprice:this.data.goodsData.minprice,
+                maxprice:this.data.goodsData.maxprice,
+                total:this.data.goodsData.total,
+                hasoption:this.data.goodsData.hasoption,
+                specsitem:this.data.specsitem,
+                orderShow:true
+
+            })
+
+        }
+
+    })
+  },
+2)根据接口数据进行拆分，遍历，转换类型，排序，拼接
+
+
+ /**
+     * 计算规格项组合与option的映射
+     * @param options Array 接口拿到的 options
+     *
+     */
+    buildSpecOptionMap: function(options) {
+        let len = options.length;
+        let specOptionMap = {};
+        for(let i = 0; i < len; i ++) {
+            let option = options[i];
+
+            let specs = options[i]['specs'].split('_');
+            let specsLen = specs.length;
+            for(let j = 0; j < specsLen; j ++) {
+                specs[j] = + specs[j];
+            }
+            specs.sort();
+            let specsStr = specs.join('_');
+
+            specOptionMap[specsStr] = + option['id'];
+            console.log(specOptionMap)
+        }
+        this.metaData.specOptionMap = specOptionMap;
+    },
+  
+6.购物车小图标随着加入商品的位数变化而自适应:padding是根据宽度来进行计算的
+text-align:center;
+border-radius:17rpx;
+background-color:#FF473D;
+color:#fff;
+font-size:24rpx;
+position:absolute;
+top:-55%;
+left:16%;
+border:1rpx solid #fff;
+display:none;
+padding:0 8rpx;
+vertical-align:middle;
+min-width:34rpx;
+height:34rpx;
+line-height:34rpx;
+box-sizing:border-box;
+
+7.垂直居中对齐：中文和英文有差异，加个行高:line-height或者高：height
+width:100%;
+text-align:center;
+overflow:hidden;
+white-space:nowrap;
+text-overflow:ellipsis;
+font-size:28rpx;
+margin-bottom:4rpx;
+line-height:1.5;
+
+8.加入购物车弹层：弹层里的确定按钮遮住了数量input加减
+最外层父元素加个padding-bottom，padding-bottom:98rpx;
+
+9.字体超出一行换行，第二超出已省略号显示：
+    word-wrap:break-word;
+    word-break:break-all;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    word-break:break-all;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+
+10.做小程序期间中间穿插了一个拉手团购的活动，h5活动页不仅要在wap端上线还要在app中上线，H5页面嵌入到客户端app中可能会出现h5样式错乱：可能是app的容器所影响的，也可能是手机自带的内核影响的
+
